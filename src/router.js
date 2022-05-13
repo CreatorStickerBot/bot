@@ -2,8 +2,25 @@ const { Router } = require('express')
 const multiparty = require('multiparty')
 const { rmSync, createReadStream } = require('fs')
 const telegramApi = require('./telegramApi')
+const api = require('./api')
 
 const router = Router()
+
+router.use((req, res, next) => {
+  const { authorization } = req.headers
+  if (!authorization || !authorization.includes('Bearer ')) {
+    res.status(401)
+    res.send('No authorization header')
+    return;
+  }
+  api.confirmationRequest(authorization).then(() => {
+    next()
+  }).catch(err => {
+    console.log(err)
+    res.status(401)
+    res.send(err.response.data)
+  })
+})
 
 router.all('/check-life', (_, res) => {
   res.status(200)
@@ -20,22 +37,40 @@ router.all('/check-life', (_, res) => {
  * /getProfilePhotos
  */
 
-router.get('/getStickerSet', (req, res) => {
-  /**
-   * @param {{stickerSetName}} req.body
-   */
-  if (!req.body.stickerSetName) {
+router.get('/sticker-set/:stickerSetTitle', (req, res) => {
+  const { stickerSetTitle } = req.params
+
+
+  if (!stickerSetTitle) {
     res.status(400)
     res.json({
       error: 'Bad request',
-      message: 'Invalid field {stickerSetName}'
+      message: 'Invalid param stickerSetTitle'
     })
     return;
   }
 
-  telegramApi.getStickerSet(req.body.stickerSetName).then((data) => {
-    res.status(200)
-    res.json(data)
+  const name = stickerSetTitle + '_by_creator_stickers_bot'
+
+  telegramApi.getStickerSet(name).then(async (data) => {
+
+    Promise.all(
+      data.stickers.map(async sticker => {
+        const image = await telegramApi.getFile(sticker.file_id)
+        return {
+          width: sticker.width,
+          height: sticker.height,
+          emoji: sticker.emoji,
+          image,
+        }
+      }),
+    ).then(stickers => {
+      res.status(200)
+      res.json(stickers)
+    }).catch((errorMessage) => {
+      res.status(errorMessage.error_code)
+      res.send(errorMessage.description)
+    })
   }).catch((errorMessage) => {
     res.status(errorMessage.error_code)
     res.send(errorMessage.description)
@@ -43,20 +78,17 @@ router.get('/getStickerSet', (req, res) => {
 
 })
 
-router.get('/getProfilePhotos', (req, res) => {
-  /**
-   * @param {{userId}} req.body
-   */
-  if (!req.body.userId) {
+router.get('/profile-photo/:telegramId', (req, res) => {
+  if (!req.params.telegramId) {
     res.status(400)
     res.json({
       error: 'Bad request',
-      message: 'Invalid field {userId}'
+      message: 'Invalid params :telegramId'
     })
     return;
   }
 
-  telegramApi.getUserPhotos(req.body.userId).then((data) => {
+  telegramApi.getUserPhotos(req.params.telegramId).then((data) => {
     const { photos, total_count } = data
 
     const miniPhotos = photos.map(async photo => {
@@ -77,22 +109,22 @@ router.get('/getProfilePhotos', (req, res) => {
 
 router.post('/createStickerSet', (req, res) => {
   /**
-   * @param {{ userId, title, pngFileId, emojis }} req.body
+   * @param {{ telegramId, title, pngFileId, emojis }} req.body
    */
   // console.log(req)
-  const { userId, title, pngFileId, emojis } = req.body
+  const { telegramId, title, pngFileId, emojis } = req.body
 
-  if (!userId || !title || !pngFileId || !emojis || emojis.length < 1) {
+  if (!telegramId || !title || !pngFileId || !emojis || emojis.length < 1) {
     res.status(400)
     res.json({
       error: 'Bad request',
-      message: 'Invalid field one or more of [userId, title, pngFileId, emojis]'
+      message: 'Invalid field one or more of [telegramId, title, pngFileId, emojis]'
     })
     return;
   }
 
   const name = title + '_by_creator_stickers_bot'
-  telegramApi.createStickerSet(userId, name, title, pngFileId, emojis).then((data) => {
+  telegramApi.createStickerSet(telegramId, name, title, pngFileId, emojis).then((data) => {
     // if success create? return true
     if (Boolean(data)) {
       res.status(200)
@@ -105,8 +137,16 @@ router.post('/createStickerSet', (req, res) => {
       })
     }
   }).catch((errorMessage) => {
-    res.status(errorMessage.error_code)
-    res.send(errorMessage.description)
+    if (!errorMessage.error_code) {
+      console.log(errorMessage.message, errorMessage.message.includes('join is not a function'))
+      if (errorMessage.message.includes('join is not a function')) {
+        res.status(400)
+        res.send('Invalid request')
+      }
+    } else {
+      res.status(errorMessage.error_code)
+      res.send(errorMessage.description)
+    }
   })
 })
 
@@ -114,9 +154,9 @@ router.post('/addSticker', (req, res) => {
   /**
    * @param {{ userId, setName, pngFileId, emojis }} req.body
    */
-  const { userId, setName, pngFileId, emojis } = req.body
+  const { telegramId, stickerSetName, pngFileId, emojis } = req.body
 
-  if (!userId || !setName || !pngFileId || !emojis || emojis.length < 1) {
+  if (!telegramId || !stickerSetName || !pngFileId || !emojis || emojis.length < 1) {
     res.status(400)
     res.json({
       error: 'Bad request',
@@ -125,11 +165,11 @@ router.post('/addSticker', (req, res) => {
     return;
   }
 
-  telegramApi.addSticker(userId, setName, pngFileId, emojis).then(async (data) => {
+  const name = stickerSetName + '_by_creator_stickers_bot'
+
+  telegramApi.addSticker(telegramId, name, pngFileId, emojis).then((data) => {
     if (Boolean(data)) {
-      const image = await telegramApi.getFile(pngFileId)
-      res.status(200)
-      res.send(image)
+      res.sendStatus(200)
     } else {
       res.status(400)
       res.json({
@@ -143,27 +183,35 @@ router.post('/addSticker', (req, res) => {
   })
 })
 
-router.post('/uploadStickerImage', (req, res) => {
+router.post('/uploadStickerImage/:telegramId', (req, res) => {
   const form = new multiparty.Form()
+  const { telegramId } = req.params
+
+  if (!telegramId) {
+    res.status(400)
+    res.json({
+      error: 'Bad request',
+      message: 'Invalid param :telegramId'
+    })
+    return;
+  }
 
   form.parse(req, (err, fields, files) => {
     /**
-     * @param {{ userId }} fields
      * @param {{ pngSticker }} files
      */
-    if ((!fields.userId || !files.pngSticker) || (fields.userId.length < 0 || files.pngSticker.length < 0)) {
+    if (!files.pngSticker || files.pngSticker.length < 0) {
       res.status(400)
       res.json({
         error: 'Bad request',
-        message: 'Invalid field one or more of [userId, pngSticker]'
+        message: 'Invalid field pngSticker'
       })
       return;
     }
 
-    const userId = fields.userId[0]
     const filePath = files.pngSticker[0].path
 
-    telegramApi.uploadStickerImage(userId, createReadStream(filePath)).then((data) => {
+    telegramApi.uploadStickerImage(telegramId, createReadStream(filePath)).then((data) => {
       rmSync(filePath)
       res.status(200)
       res.send(data)
@@ -174,16 +222,13 @@ router.post('/uploadStickerImage', (req, res) => {
   })
 })
 
-router.delete('/removeSticker', (req, res) => {
-  /**
-   * @param {{ fileId }} req.body
-   */
-  const { fileId } = req.body
+router.delete('/sticker-set/:fileId', (req, res) => {
+  const { fileId } = req.params
   if (!fileId) {
     res.status(400)
     res.json({
       error: 'Bad request',
-      message: 'Invalid field one or more of [userId, setName, pngFileId, emojis]'
+      message: 'Invalid field one fileId'
     })
     return;
   }

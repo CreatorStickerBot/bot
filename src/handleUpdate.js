@@ -1,51 +1,58 @@
 const telegramApi = require('./telegramApi')
 const api = require('./api')
 const {getMessageBotCommand} = require('./utls/handlerUtils')
-const { helloMessage, notFoundCommandMessage, badCommand, successConfirmed} = require('./consts/telegramMessages')
+const keyError = require('./consts/keyErrorsMessage')
+const { errorMessages, getRegistrationMessage} = require('./consts/telegramMessages')
 
 const commandList = {
   start: '/start',
-  confirmation: '/confirmation'
+  code: '/code'
 }
 
 const commandHandlers = {
-  [commandList.start]: (userId) => {
-    telegramApi.sendMessage(userId, helloMessage).catch(console.log)
+  /**
+   *
+   * @param { id, username } user
+   */
+  [commandList.start]: (user) => {
+    api.getConfirmationCode(user.username, user.id).then(code => {
+      telegramApi.sendMessage(user.id, getRegistrationMessage(code)).catch(console.log)
+    }).catch(err => {
+      handleBadCommand(user.id, err)
+    })
   },
-  [commandList.confirmation]: (userId, text) => {
-    const indexStartCommand = text.indexOf(commandList.confirmation)
-    const code = text.substring(indexStartCommand + commandList.confirmation.length + 1)
-    if (code.length > 0)
-      api.sendConfirmedCode(code).then(() => {
-        telegramApi.sendMessage(userId, successConfirmed).catch(console.log)
-      }).catch(() => {
-        telegramApi.sendMessage(userId, badCommand).catch(console.log)
-      })
-    else
-      telegramApi.sendMessage(userId, badCommand).catch(console.log)
-  }
 }
 
-function handleBadCommand (userId, errorMessage) {
-  telegramApi.sendMessage(userId, errorMessage).catch(console.log)
+function handleBadCommand (userId, err) {
+  telegramApi.sendMessage(userId, errorMessages[err]).catch(console.log)
 }
 
 function handleCommand (command, message) {
-  const { from: { id: userId } } = message
+  const { from: user } = message
 
   if (command in commandHandlers) {
-    commandHandlers[command](userId, message.text)
+    commandHandlers[command](user, message.text)
   } else {
-    handleBadCommand(userId, notFoundCommandMessage)
+    handleBadCommand(user.id, keyError.notFoundCommand)
   }
 }
 
-function handleUpdate (message) {
-  const command = getMessageBotCommand(message)
-  if (command) handleCommand(command, message)
+async function handleUpdate (message) {
+  const confirmed = await api.confirmationActions(message.from.id)
+  if (confirmed) {
+    const command = getMessageBotCommand(message)
+    if (command) handleCommand(command, message)
+  } else {
+    handleBadCommand(message.from.id, keyError.notConfirmedUser)
+  }
 
-  console.log(message)
-
+  api.saveMessage(message).catch(err => {
+    console.log('[ERROR SERVER]_____________')
+    console.log('[ERROR CODE]: ' + err.code)
+    console.log('A MESSAGE RECEIVED WHILE THE SERVER WAS UNAVAILABLE:\n' + JSON.stringify(message))
+    console.log('---------------------------')
+    throw new Error(err)
+  })
 }
 
 module.exports = handleUpdate

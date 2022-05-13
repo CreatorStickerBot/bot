@@ -1,19 +1,21 @@
-const helloMessage = 'Привет!\n' +
-  'Если ты хочешь подтвердить регистрацию в сервисе, отправь мне пожалуйста сообщение с следющим текстом:\n\n' +
-  '\`/confirmation code\`\n\n' +
-  'Вместо `code` укажи свой код подтверждения\n\n'
+const keyError = require('./keyErrorsMessage')
+const {FRONTEND_URL} = require('../../config/config')
 
-const notFoundCommandMessage = 'Я не знаю такой комманды'
+const getRegistrationMessage = (code) => {
+  return 'Привет!\n' +
+    'Вот твой код подтверждения: `' + code + '`'
+}
 
-const badCommand = 'Команда введена неправильно'
-
-const successConfirmed = 'Спасибо за регистрацию в нашем сервисе:)\n'+
-  'Ссылка для перехода в личный кабинет http://localhost:2000/profile и https://google.com\n\n и http://127.0.0.1:2000/profile\n' +
-  'Приятного использования)'
+const errorMessages = {
+  [keyError.confirmed]: 'Вы уже подтвердили регистрацию!',
+  [keyError.notFoundUser]: 'Привет!\nЯ не нашел тебя в списках зарегистрированных пользователей:(\n' +
+    `Если хочешь зарегистрироваться, перейди пожалуйста на сайт ${FRONTEND_URL}`,
+  [keyError.notFoundCommand]: 'Я не знаю такой комманды',
+  [keyError.badCommand]: 'Команда введена неправильно',
+  [keyError.notConfirmedUser]: 'Здравствуйте! Сейчас проходит закрытое тестирование концепции.',
+}
 
 module.exports = {
-  helloMessage,
-  notFoundCommandMessage,
-  badCommand,
-  successConfirmed
+  getRegistrationMessage,
+  errorMessages,
 }

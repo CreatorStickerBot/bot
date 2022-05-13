@@ -1,4 +1,4 @@
-const { BOT_API_URL, FILE_API_URL} = require('../config')
+const { BOT_API_URL, FILE_API_URL} = require('../config/config')
 const https = require('https')
 const axios = require('axios')
 const FormData = require('form-data')
@@ -69,9 +69,9 @@ const telegramApi = {
       })
     })
   },
-  getUserPhotos (userId) {
+  getUserPhotos (telegramId) {
     return new Promise((resolve, reject) => {
-      botApi.get(`/getUserProfilePhotos?user_id=${userId}`).then((res) => {
+      botApi.get(`/getUserProfilePhotos?user_id=${telegramId}`).then((res) => {
         resolve(res.data.result)
       }).catch((e) => {
         reject(e.response.data)
@@ -96,7 +96,7 @@ const telegramApi = {
             base64 += Buffer.from(data).toString('base64')
             resolve({
               fileId: fileId,
-              image: base64
+              file: base64
             })
           })
           .catch(reject)
