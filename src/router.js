@@ -6,6 +6,11 @@ const api = require('./api')
 
 const router = Router()
 
+router.all('/check-life', (_, res) => {
+  res.status(200)
+  res.send('ok')
+})
+
 router.use((req, res, next) => {
   const { authorization } = req.headers
   if (!authorization || !authorization.includes('Bearer ')) {
@@ -20,11 +25,6 @@ router.use((req, res, next) => {
     res.status(401)
     res.send(err.response.data)
   })
-})
-
-router.all('/check-life', (_, res) => {
-  res.status(200)
-  res.send('ok')
 })
 
 /**
