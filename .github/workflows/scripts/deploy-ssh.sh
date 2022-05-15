@@ -1,7 +1,7 @@
 #!/bin/sh
 
 GREEN='\033[0;32m'
-REG='\033[0;31m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e [] ${GREEN}Docker pull new container

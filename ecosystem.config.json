@@ -1,4 +1,4 @@
 {
   "name": "BotApi",
-  "script": "./src/index.js"
+  "script": "index.js"
 }
