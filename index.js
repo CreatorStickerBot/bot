@@ -6,7 +6,7 @@ const api = require('./src/api')
 const router = require('./src/router')
 
 const handleUpdate = require('./src/handleUpdate')
-const {checkEnvs} = require('./config/config')
+const {checkEnvs, PORT} = require('./config/config')
 
 const app = express()
 
@@ -50,7 +50,7 @@ if (!checkEnvs()) {
   throw new Error('Not found env variables')
 }
 
-app.listen(3000, () => {
+app.listen(PORT, '0.0.0.0', () => {
   longPollUpdate()
-  console.log('listen on 3000')
+  console.log(`listen on 0.0.0.0:${PORT}`)
 })

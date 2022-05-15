@@ -7,8 +7,11 @@ const
   PATH_BOT_API = `bot${TG_TOKEN}`,
   BOT_API_URL = `${PROTOCOL_API}://${HOST_API}/${PATH_BOT_API}`,
   FILE_API_URL = `${PROTOCOL_API}://${HOST_API}/file/${PATH_BOT_API}`,
-  BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3001/api',
-  FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:2000'
+  BACKEND_PORT = +process.env.BACKEND_PORT,
+  PORT = +process.env.BOT_PORT,
+  HOST = process.env.VM_HOST
+  // BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3001/api',
+  // FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:2000'
 
 function checkEnvs() {
   return Boolean(process.env.TG_TOKEN)
@@ -22,6 +25,7 @@ module.exports = {
   PATH_BOT_API,
   BOT_API_URL,
   FILE_API_URL,
-  BACKEND_API_URL,
-  FRONTEND_URL
+  BACKEND_PORT,
+  HOST,
+  PORT
 }

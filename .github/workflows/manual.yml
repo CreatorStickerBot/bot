@@ -1,0 +1,68 @@
+name: Push To YC CR And Deploy to YC VM
+
+on:
+  release:
+    types: [created]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Yandex Cloud CR "Login" Action for GitHub Actions
+        uses: yc-actions/yc-cr-login@v0.1-alpha
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+      - name: Build, tag, and push image to Yandex Cloud Container Registry
+        env:
+          CR_REGISTRY: ${{ secrets.CR_REGISTRY }}
+          CR_REPOSITORY: yc-cr-creator-sticker-bot
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:$IMAGE_TAG \
+            --build-arg BACKEND_PORT="${{ secrets.BACKEND_PORT }}" \
+            --build-arg VM_HOST="${{ secrets.VM_HOST }}" \
+            --build-arg BUILD_NUM=$GITHUB_RUN_NUMBER \
+            --build-arg TG_TOKEN=${{ secrets.TG_TOKEN }} \
+            --build-arg BOT_PORT=${{ secrets.BOT_PORT }} \
+            .
+          docker push cr.yandex/$CR_REGISTRY/$CR_REPOSITORY:$IMAGE_TAG
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/checkout@v2
+    - name: Deploy
+      run: |
+        mkdir -p ~/.ssh/
+        echo "${SSH_PRIVATE_KEY}" > ../private.key
+        sudo chmod 600 ../private.key
+        echo "${SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+        
+        ssh -i $SSH_KEY_PATH $VM_USER@$VM_HOST \
+          CR_REGISTRY=$CR_REGISTRY \
+          CR_REPOSITORY=$CR_REPOSITORY \
+          IMAGE_TAG=$IMAGE_TAG \
+          GITHUB_RUN_NUMBER=$GITHUB_RUN_NUMBER \
+          PORT=${{ secrets.BOT_PORT }} \
+          'bash -s -e' < .github/workflows/scripts/deploy-ssh.sh
+        
+        exit_code=$?
+        echo exit code: $exit_code          
+        if [[ "$exit_code" = "1" ]]; then
+          echo "Deploy failed"
+          test $exit_code -ne 0 && exit $exit_code
+        fi
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        SSH_KEY_PATH: ${{ github.workspace }}/../private.key
+        VM_USER: ${{ secrets.VM_USER }}
+        VM_HOST: ${{ secrets.VM_HOST }}
+        CR_REGISTRY: ${{ secrets.CR_REGISTRY }}
+        CR_REPOSITORY: yc-cr-creator-sticker-bot
+        IMAGE_TAG: ${{ github.sha }}
+

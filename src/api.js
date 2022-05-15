@@ -1,13 +1,13 @@
 const axios = require('axios')
-const { BACKEND_API_URL } = require('../config/config')
+const { BACKEND_PORT, HOST} = require('../config/config')
 const { confirmed: confirmedError, notFoundUser } = require('./consts/keyErrorsMessage')
 
-const backendApi = axios.create({ baseURL: BACKEND_API_URL })
+const backendApi = axios.create({ baseURL: `http://${HOST}:${BACKEND_PORT}/api/bot` })
 
 const api = {
   getConfirmationCode (username, telegramId) {
     return new Promise((resolve, reject) => {
-      backendApi.post('/bot/confirmation-code', { username, telegramId }).then(res => {
+      backendApi.post('/confirmation-code', { username, telegramId }).then(res => {
         const { code, confirmed } = res.data
         if (!code && confirmed) {
           reject(confirmedError)
@@ -24,28 +24,28 @@ const api = {
   },
   confirmationRequest (authStr) {
     return new Promise((resolve, reject) => {
-      backendApi.get('/bot/auth/confirmation-request', {
+      backendApi.get('/auth/confirmation-request', {
         headers: { Authorization: authStr }
       }).then(resolve).catch(reject)
     })
   },
   saveMessage (message) {
     return new Promise((resolve, reject) => {
-      backendApi.post('/bot/save-message', { message: JSON.stringify(message) })
+      backendApi.post('/save-message', { message: JSON.stringify(message) })
         .then(resolve)
         .catch(reject)
     })
   },
   confirmationActions (telegramId) {
     return new Promise((resolve, reject) => {
-      backendApi.post('/bot/confirmation-actions', { telegramId })
+      backendApi.post('/confirmation-actions', { telegramId })
         .then(() => resolve(true))
         .catch(() => resolve(false))
     })
   },
   checkLife () {
     return new Promise((resolve, reject) => {
-      backendApi.get('/bot/check-life')
+      backendApi.get('/check-life')
         .then(resolve)
         .catch(reject)
     })
