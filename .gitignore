@@ -118,3 +118,6 @@ dist
 
 #IDE WebStorm
 .idea
+
+#Old source
+_old
